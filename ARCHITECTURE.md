@@ -449,6 +449,16 @@ def test_search_empty_query():
 - [ ] `retriever.py` returns metadata (after team agreement on contract change)
 - [ ] `tests/test_retrieval.py` passing
 
+#### Completed Work — Zeynep Çavuş
+
+- Implemented `agents/retrieval_agent.py` as a clean interface for the RAG pipeline with safe handling of empty inputs.  
+- Extended `rag/embedder.py` with metadata (`source_file`, `chunk_index`) and added `clear_collection()` (exposed as `clear_index()` in pipeline).  
+- Applied singleton pattern in `embedder.py` and `retriever.py` to improve performance.  
+- Updated retrieval logic to return metadata-aware results (`text`, `source_file`, `page`, `chunk_index`).  
+- Developed and validated a test suite for the retrieval layer (all tests passing).  
+
+⚠️ Note: Retrieval output changed from `list[str]` to `list[dict]`; downstream components should use `chunk["text"]`.
+
 ---
 
 ### Member 4 — Answer Agent Developer - Ezgi

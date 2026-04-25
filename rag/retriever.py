@@ -3,46 +3,64 @@
 # Responsibility: Given a user question, find and return the most
 # relevant text chunks from ChromaDB using vector similarity search.
 #
-# How it works:
-#   1. The question is embedded into a vector using the same model
-#      that was used during indexing.
-#   2. ChromaDB compares that vector against all stored chunk vectors
-#      using cosine similarity.
-#   3. The top-k closest chunks are returned as plain strings.
-#
-# Used by: rag/pipeline.py → search()
+# Changes from Kerem's original:
+#   1. Singleton pattern — model loads once, reused every call.
+#   2. retrieve_top_chunks() now returns list[dict] with full metadata
+#      (text, source_file, page, chunk_index) so the UI can show
+#      "Source: lecture3.pdf, page 5" alongside every answer.
 # ─────────────────────────────────────────────────────────────
 
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 
-# Must match the values used in embedder.py
 CHROMA_DIR = "./chroma_db"
 COLLECTION  = "eduagent_docs"
 
+# ── Singleton ────────────────────────────────────────────────
+_embeddings = None
 
-def retrieve_top_chunks(question: str, k: int = 3) -> list[str]:
+def _get_embeddings() -> HuggingFaceEmbeddings:
+    """Return the shared embedding model, loading it on first call."""
+    global _embeddings
+    if _embeddings is None:
+        _embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    return _embeddings
+
+
+def retrieve_top_chunks(question: str, k: int = 3) -> list[dict]:
     """
-    Return the top-k most relevant text chunks for a question.
+    Return the top-k most relevant chunks with full metadata.
 
     Args:
-        question: The student's question as a plain string.
+        question: The student's question.
         k:        Number of chunks to return (default: 3).
 
     Returns:
-        A list of plain text strings (the chunk contents).
-    """
-    # Use the same embedding model so question vectors and chunk
-    # vectors live in the same vector space.
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        List of dicts with keys: text, source_file, page, chunk_index.
 
-    # Open the existing ChromaDB collection (must be indexed first).
+    Example:
+        [
+            {
+                "text": "Q-Learning is a model-free algorithm...",
+                "source_file": "lecture3.pdf",
+                "page": 5,
+                "chunk_index": 2
+            },
+            ...
+        ]
+    """
     db = Chroma(
         persist_directory=CHROMA_DIR,
-        embedding_function=embeddings,
+        embedding_function=_get_embeddings(),
         collection_name=COLLECTION,
     )
-
-    # similarity_search returns Document objects; we extract .page_content
     results = db.similarity_search(question, k=k)
-    return [doc.page_content for doc in results]
+    return [
+        {
+            "text":        doc.page_content,
+            "source_file": doc.metadata.get("source_file", "unknown"),
+            "page":        doc.metadata.get("page", 0),
+            "chunk_index": doc.metadata.get("chunk_index", 0),
+        }
+        for doc in results
+    ]
