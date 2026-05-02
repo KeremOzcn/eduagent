@@ -11,9 +11,9 @@
 # The LLM never sees the full document — only the relevant chunks.
 # This keeps answers focused and reduces hallucination.
 #
-# Depends on: Ollama running locally with qwen3.5:9b pulled.
+# Depends on: Ollama running locally with qwen2.5:7b pulled.
 #   → Start Ollama:   ollama serve
-#   → Pull model:     ollama pull qwen3.5:9b
+#   → Pull model:     ollama pull qwen2.5:7b
 # ─────────────────────────────────────────────────────────────
 
 import os
@@ -24,7 +24,7 @@ from langchain_ollama import OllamaLLM
 # When running locally without Docker it defaults to localhost.
 _ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 
-llm = OllamaLLM(model="qwen3.5:9b", base_url=_ollama_host)
+llm = OllamaLLM(model="qwen2.5:7b", base_url=_ollama_host)
 
 
 def generate_answer(question: str, chunks: list[dict]) -> str:

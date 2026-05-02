@@ -9,9 +9,9 @@
 #   3. Parse the JSON (with markdown-code-block fallback) and compute
 #      an overall score as the average of the three criteria.
 #
-# Depends on: Ollama running locally with qwen3.5:9b pulled.
+# Depends on: Ollama running locally with qwen2.5:7b pulled.
 #   → Start Ollama:   ollama serve
-#   → Pull model:     ollama pull qwen3.5:9b
+#   → Pull model:     ollama pull qwen2.5:7b
 # ─────────────────────────────────────────────────────────────
 
 import json
@@ -21,7 +21,7 @@ import re
 from langchain_ollama import OllamaLLM
 
 _ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-llm = OllamaLLM(model="qwen3.5:9b", base_url=_ollama_host)
+llm = OllamaLLM(model="qwen2.5:7b", base_url=_ollama_host)
 
 EVAL_PROMPT = """You are an academic answer evaluator. Score the following answer on three criteria.
 Return ONLY valid JSON — no explanation, no markdown, just raw JSON.
