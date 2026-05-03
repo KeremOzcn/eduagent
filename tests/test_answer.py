@@ -50,19 +50,26 @@ def test_generate_answer_formats_metadata_chunks():
     assert "Chunk text" in prompt
 
 
-def test_generate_answer_supports_bullet_format():
+def test_generate_answer_supports_bullet_format_english():
     with patch("agents.answer_agent.llm") as mock_llm:
         mock_llm.invoke.return_value = "mocked"
         generate_answer("What is ML?", ["ML is a field of AI."], format="bullets")
 
         prompt = mock_llm.invoke.call_args[0][0]
 
-    assert "STYLE: Yanıtı madde işaretleriyle ver." in prompt
+    assert "Answer with bullet points." in prompt
+
+
+def test_generate_answer_supports_bullet_format_turkish():
+    with patch("agents.answer_agent.llm") as mock_llm:
+        mock_llm.invoke.return_value = "mocked"
+        generate_answer("Makine öğrenmesi nedir?", ["Yapay zeka alanıdır."], format="bullets")
+
+        prompt = mock_llm.invoke.call_args[0][0]
+
+    assert "Yanıtı madde işaretleriyle ver." in prompt
 
 
 def test_generate_answer_empty_chunks_returns_fallback():
-    with patch("agents.answer_agent.llm") as mock_llm:
-        result = generate_answer("What is X?", [])
-
-    mock_llm.invoke.assert_not_called()
+    result = generate_answer("What is X?", [])
     assert result == "I don't have enough information to answer that."

@@ -90,13 +90,20 @@ QUESTION: {question}
 ANSWER:"""
 
 
-def _format_instruction(format: str) -> str:
-    """Return a short instruction for the requested answer format."""
+def _format_instruction(format: str, lang: str) -> str:
+    """Return a short instruction for the requested answer format in the given language."""
+    if lang == "tr":
+        if format == "bullets":
+            return "Yanıtı madde işaretleriyle ver."
+        if format == "paragraph":
+            return "Yanıtı tek, akıcı bir paragraf olarak ver."
+        return "Yanıt biçimini sorunun doğasına göre seç."
+
     if format == "bullets":
-        return "Yanıtı madde işaretleriyle ver."
+        return "Answer with bullet points."
     if format == "paragraph":
-        return "Yanıtı tek, akıcı bir paragraf olarak ver."
-    return "Yanıt biçimini sorunun doğasına göre seç."
+        return "Answer in a single, flowing paragraph."
+    return "Choose the answer format based on the nature of the question."
 
 
 def generate_answer(question: str, chunks: list[dict], format: str = "auto") -> str:
@@ -114,14 +121,15 @@ def generate_answer(question: str, chunks: list[dict], format: str = "auto") -> 
     normalized_chunks = [_format_chunk(chunk, index) for index, chunk in enumerate(chunks, start=1)]
     context = "\n\n".join(chunk for chunk in normalized_chunks if chunk.strip())
 
+    lang = _detect_language(question)
+
     if not context.strip():
         return (
             "Bu soruyu yanıtlamak için yeterli bilgiye sahip değilim."
-            if _detect_language(question) == "tr"
+            if lang == "tr"
             else "I don't have enough information to answer that."
         )
 
-    lang = _detect_language(question)
     prompt = _build_prompt(question, context, lang)
-    prompt = f"{prompt}\n\nSTYLE: {_format_instruction(format)}"
+    prompt = f"{prompt}\n\n{_format_instruction(format, lang)}"
     return llm.invoke(prompt)

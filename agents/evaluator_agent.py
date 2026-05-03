@@ -18,7 +18,15 @@ import json
 import os
 import re
 
-from langchain_ollama import OllamaLLM
+try:
+    from langchain_ollama import OllamaLLM
+except ImportError:  # pragma: no cover - makes unit tests importable without Ollama deps
+    class OllamaLLM:  # type: ignore[no-redef]
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def invoke(self, prompt: str) -> str:
+            raise RuntimeError("langchain_ollama is not installed")
 
 _ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 llm = OllamaLLM(model="qwen2.5:7b", base_url=_ollama_host)
