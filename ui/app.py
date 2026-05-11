@@ -1,14 +1,17 @@
-# app.py — EduAgent
-# Run with: streamlit run app.py
+# ui/app.py — EduAgent
+# Run with: streamlit run ui/app.py
 
+import sys
+import os
 import tempfile
+
+# Ensure the project root is on the path so we can import agents and rag
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 import streamlit as st
 
-from agents.answer_agent    import generate_answer
-from agents.retrieval_agent import retrieve
-from agents.monitor_agent   import check_answer
-from agents.evaluator_agent import evaluate_answer
-from rag.pipeline           import load_and_index_pdf, clear_index
+from rag.pipeline import load_and_index_pdf, clear_index
+from orchestrator.pipeline import run_pipeline
 
 # ── Page config ────────────────────────────────────────────────
 st.set_page_config(
@@ -408,7 +411,6 @@ with col_left:
         )
 
         if st.button("⚡ Process & Index PDF", use_container_width=True, type="primary"):
-            import os
             tmp_path = os.path.join(tempfile.gettempdir(), uploaded_file.name)
             with open(tmp_path, 'wb') as tmp:
                 tmp.write(uploaded_file.read())
@@ -491,9 +493,9 @@ with col_right:
         </div>
         """, unsafe_allow_html=True)
 
-        monitor = entry.get("monitor", {})
-        passed  = monitor.get("passed", True)
-        border  = "#22c55e22" if passed else "#f8717122"
+        flags = entry.get("flags", [])
+        passed = entry.get("passed", True)
+        border = "#22c55e22" if passed else "#f8717122"
 
         st.markdown(f"""
         <div class="msg-agent-wrap">
@@ -541,8 +543,6 @@ with col_right:
             if feedback and feedback != "parse_error":
                 st.markdown(f'<div class="feedback-box">💡 {feedback}</div>', unsafe_allow_html=True)
 
-        flags = monitor.get("flags", [])
-        passed = monitor.get("passed", True)
         badges = "".join(f'<span class="badge badge-warn">⚠ {f}</span>' for f in flags) if flags \
                  else '<span class="badge badge-ok">✓ Safe</span>'
 
@@ -553,7 +553,6 @@ with col_right:
         </div>
         """, unsafe_allow_html=True)
 
-        # Belirgin uyarı — monitor fail ise
         if not passed:
             st.error("⚠️ **Monitor Alert:** This answer may contain unsafe content. Please review carefully.")
         elif flags:
@@ -563,10 +562,13 @@ with col_right:
         if chunks:
             with st.expander(f"📎 Source chunks — {len(chunks)} retrieved", expanded=True):
                 for i, chunk in enumerate(chunks, 1):
+                    source_file = chunk.get("source_file", "unknown") if isinstance(chunk, dict) else "unknown"
+                    page = chunk.get("page", "?") if isinstance(chunk, dict) else "?"
+                    text = chunk.get("text", "") if isinstance(chunk, dict) else str(chunk)
                     st.markdown(f"""
                     <div class="chunk-item">
-                        <div class="chunk-meta">#{i} · {chunk.get('source_file', 'unknown')} · page {chunk.get('page', '?')}</div>
-                        <div class="chunk-text">{chunk.get('text', '')[:320]}{'…' if len(chunk.get('text', '')) > 320 else ''}</div>
+                        <div class="chunk-meta">#{i} · {source_file} · page {page}</div>
+                        <div class="chunk-text">{text[:320]}{'…' if len(text) > 320 else ''}</div>
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -623,29 +625,27 @@ with col_right:
                     pip_ph.markdown(html, unsafe_allow_html=True)
 
                 show_pip("Retrieval")
-                chunks = retrieve(question)
 
-                if not chunks:
-                    pip_ph.empty()
-                    st.warning("No results found. Make sure you have processed a PDF first.")
-                else:
-                    show_pip("Answer")
-                    answer = generate_answer(question, chunks)
+                # ── Run the full orchestrator pipeline ──────────────────
+                result = run_pipeline(question)
 
-                    show_pip("Monitor")
-                    monitor_result = check_answer(answer, chunks, question)
+                show_pip("Evaluator")
 
-                    show_pip("Evaluator")
-                    scores = evaluate_answer(question, answer, chunks)
+                pip_ph.empty()
 
-                    pip_ph.empty()
+                st.session_state.chat_history.append({
+                    "question": question,
+                    "answer":   result["answer"],
+                    "chunks":   result.get("chunks", []),
+                    "passed":   not any(f.startswith("unsafe_pattern:") for f in result.get("flags", [])),
+                    "flags":    result.get("flags", []),
+                    "scores":   {
+                        "score":        result.get("score", 0.0),
+                        "relevance":    result.get("breakdown", {}).get("relevance", 0.0),
+                        "accuracy":     result.get("breakdown", {}).get("accuracy", 0.0),
+                        "completeness": result.get("breakdown", {}).get("completeness", 0.0),
+                        "feedback":     result.get("feedback", ""),
+                    },
+                })
 
-                    st.session_state.chat_history.append({
-                        "question": question,
-                        "answer":   answer,
-                        "chunks":   chunks,
-                        "monitor":  monitor_result,
-                        "scores":   scores,
-                    })
-
-                    st.rerun()
+                st.rerun()

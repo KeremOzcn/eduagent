@@ -11,8 +11,13 @@ venv/
 # ChromaDB data (generated at runtime)
 chroma_db/
 
-# Streamlit cache
-.streamlit/
+# Streamlit cache & secrets (keep config.toml)
+.streamlit/cache/
+.streamlit/secrets.toml
+
+# Test artifacts
+.coverage
+.pytest_cache/
 
 # OS
 .DS_Store
